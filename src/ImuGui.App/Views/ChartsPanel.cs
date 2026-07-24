@@ -1,4 +1,5 @@
 using ImuGui.App.Settings;
+using ImuGui.App.Theming;
 using ImuGui.Core.Collections;
 using ImuGui.Core.Models;
 using ImuGui.Core.Pipeline;
@@ -95,6 +96,16 @@ public sealed class ChartsPanel : UserControl
         _charts[0].ApplyVisibility(settings.GyroscopeAxes);
         _charts[1].ApplyVisibility(settings.AccelerometerAxes);
         _charts[2].ApplyVisibility(settings.MagnetometerAxes);
+    }
+
+    /// <summary>Restyles every chart for the active theme.</summary>
+    public void ApplyChartTheme(AppTheme theme)
+    {
+        ArgumentNullException.ThrowIfNull(theme);
+        foreach (ChannelChart chart in _charts)
+        {
+            chart.ApplyTheme(theme);
+        }
     }
 
     /// <summary>Renders all charts from their ring buffers (skipped while the tab is hidden).</summary>
@@ -208,6 +219,17 @@ public sealed class ChartsPanel : UserControl
 
         internal ChartAxisVisibility SnapshotVisibility() => new(
             _axisCheckBoxes[0].Checked, _axisCheckBoxes[1].Checked, _axisCheckBoxes[2].Checked);
+
+        internal void ApplyTheme(AppTheme theme)
+        {
+            Plot plot = _formsPlot.Plot;
+            plot.FigureBackground.Color = ScottPlot.Color.FromColor(theme.ChartFigureBackground);
+            plot.DataBackground.Color = ScottPlot.Color.FromColor(theme.ChartDataBackground);
+            plot.Grid.MajorLineColor = ScottPlot.Color.FromColor(theme.ChartGrid);
+            plot.Axes.Color(ScottPlot.Color.FromColor(theme.ChartAxisText));
+            plot.Axes.Title.Label.ForeColor = ScottPlot.Color.FromColor(theme.ChartAxisText);
+            _formsPlot.Refresh();
+        }
 
         internal void Render(double windowSeconds, bool mainSeriesIsFiltered, bool overlayRaw)
         {

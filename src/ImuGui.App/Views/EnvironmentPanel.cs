@@ -40,7 +40,7 @@ public sealed class EnvironmentPanel : UserControl
         {
             Text = "Left-drag: orbit    Ctrl+drag: pan    Wheel: zoom    R: reset",
             AutoSize = true,
-            ForeColor = SystemColors.GrayText,
+            Tag = Theming.ThemeManager.SecondaryTextTag,
             Anchor = AnchorStyles.Left,
             Padding = new Padding(12, 6, 0, 0),
         };

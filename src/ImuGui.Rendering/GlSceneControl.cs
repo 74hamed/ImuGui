@@ -28,6 +28,7 @@ public abstract class GlSceneControl : UserControl
     private GLControl? _glControl;
     private IRenderer? _renderer;
     private bool _glInitialised;
+    private string? _glFailureMessage;
     private bool _disposed;
 
     /// <summary>Initialises the control and adds the child GLControl.</summary>
@@ -116,36 +117,69 @@ public abstract class GlSceneControl : UserControl
 
     private void OnGlPaint(object? sender, PaintEventArgs e)
     {
-        if (_glControl is null)
+        if (_glControl is null || _glFailureMessage is not null)
         {
             return;
         }
 
-        _glControl.MakeCurrent();
-
-        if (!_glInitialised)
+        try
         {
-            _renderer = new OpenGlRenderer();
-            _renderer.Initialize();
-            _renderer.Resize(_glControl.Width, Math.Max(_glControl.Height, 1));
-            _glInitialised = true;
-            OnGlInitialised();
-        }
+            _glControl.MakeCurrent();
 
-        _renderer!.BeginFrame(BackR, BackG, BackB);
-        OnRenderFrame(_renderer);
-        _glControl.SwapBuffers();
+            if (!_glInitialised)
+            {
+                _renderer = new OpenGlRenderer();
+                _renderer.Initialize();
+                _renderer.Resize(_glControl.Width, Math.Max(_glControl.Height, 1));
+                _glInitialised = true;
+                OnGlInitialised();
+            }
+
+            _renderer!.BeginFrame(BackR, BackG, BackB);
+            OnRenderFrame(_renderer);
+            _glControl.SwapBuffers();
+        }
+        catch (Exception ex)
+        {
+            // Containment boundary: throwing out of a Paint handler produces one error
+            // dialog per repaint. Fail exactly once, keep the reason visible in the view
+            // itself, and stop touching GL. The message is also traced for the log.
+            EnterFailedState($"3D view unavailable:\n{ex.Message}");
+        }
     }
 
     private void OnGlResize(object? sender, EventArgs e)
     {
-        if (_glControl is null || !_glInitialised || _renderer is null)
+        if (_glControl is null || !_glInitialised || _renderer is null || _glFailureMessage is not null)
         {
             return;
         }
 
-        _glControl.MakeCurrent();
-        _renderer.Resize(_glControl.Width, Math.Max(_glControl.Height, 1));
+        try
+        {
+            _glControl.MakeCurrent();
+            _renderer.Resize(_glControl.Width, Math.Max(_glControl.Height, 1));
+        }
+        catch (Exception ex)
+        {
+            EnterFailedState($"3D view unavailable:\n{ex.Message}");
+        }
+    }
+
+    private void EnterFailedState(string message)
+    {
+        _glFailureMessage = message;
+        System.Diagnostics.Debug.WriteLine($"{GetType().Name}: {message}");
+
+        // Hide the GL surface so this control's own OnPaint shows the diagnostic.
+        if (_glControl is not null)
+        {
+            _glControl.Paint -= OnGlPaint;
+            _glControl.Resize -= OnGlResize;
+            _glControl.Visible = false;
+        }
+
+        Invalidate();
     }
 
     // -------------------------------------------------------------------------
@@ -193,6 +227,19 @@ public abstract class GlSceneControl : UserControl
         if (IsInDesignMode())
         {
             e.Graphics.Clear(DesignTimeBackColor);
+            return;
+        }
+
+        if (_glFailureMessage is not null)
+        {
+            e.Graphics.Clear(DesignTimeBackColor);
+            TextRenderer.DrawText(
+                e.Graphics,
+                _glFailureMessage + "\n\nAn OpenGL 3.3 capable GPU/driver is required for this view.",
+                Font,
+                ClientRectangle,
+                Color.Gainsboro,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.WordBreak);
             return;
         }
 

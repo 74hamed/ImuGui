@@ -157,6 +157,8 @@ public sealed class CalibrationDialog : Form
         _progressTimer = new System.Windows.Forms.Timer { Interval = 200 };
         _progressTimer.Tick += (_, _) => RefreshProgressLabels();
         _progressTimer.Start();
+
+        Theming.ThemeManager.ApplyToWindow(this);
     }
 
     /// <summary>Feeds one raw sample; routed to the armed calibrator. Safe from any thread.</summary>

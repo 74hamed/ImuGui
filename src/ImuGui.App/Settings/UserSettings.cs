@@ -16,6 +16,9 @@ public sealed record ChartAxisVisibility(bool X = true, bool Y = true, bool Z = 
 /// </summary>
 public sealed record UserSettings
 {
+    /// <summary>Whether the dark theme is active (the default).</summary>
+    public bool UseDarkTheme { get; init; } = true;
+
     /// <summary>The selected source kind.</summary>
     public SourceMode SourceMode { get; init; } = SourceMode.CsvReplay;
 

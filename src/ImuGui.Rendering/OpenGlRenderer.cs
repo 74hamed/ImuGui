@@ -30,7 +30,7 @@ internal sealed class OpenGlRenderer : IRenderer
         {
             vec4 worldPos = uModel * vec4(aPosition, 1.0);
             vWorldPos  = worldPos.xyz;
-            // Normal matrix = transpose(inverse(uModel)) — for orthogonal rotation
+            // Normal matrix = transpose(inverse(uModel)); for orthogonal rotation
             // matrices (no non-uniform scale) this simplifies to the rotation itself.
             vNormal    = mat3(uModel) * aNormal;
             vColor     = aColor;
@@ -296,14 +296,28 @@ internal sealed class OpenGlRenderer : IRenderer
 
     private static int CompileShader(ShaderType type, string source)
     {
+        // GLSL is ASCII-only, and non-ASCII characters also break the char-count vs.
+        // byte-count assumptions of string marshalling. Fail loudly at the seam rather
+        // than letting the driver report a cryptic truncation error.
+        if (source.Any(character => character > 127))
+        {
+            throw new InvalidOperationException(
+                $"Shader source for {type} contains non-ASCII characters; GLSL sources must be pure ASCII.");
+        }
+
         int shader = GL.CreateShader(type);
-        GL.ShaderSource(shader, source);
+
+        // Use the explicit count/sources/lengths overload — a 1:1 mapping to
+        // glShaderSource. The (int, string) convenience overload has misdelivered
+        // sources on some driver/marshalling combinations ("unexpected $end at <EOF>").
+        GL.ShaderSource(shader, 1, [source], [source.Length]);
         GL.CompileShader(shader);
         GL.GetShader(shader, ShaderParameter.CompileStatus, out int compiled);
         if (compiled == 0)
         {
             string log = GL.GetShaderInfoLog(shader);
-            throw new InvalidOperationException($"GL shader compile failed ({type}): {log}");
+            throw new InvalidOperationException(
+                $"GL shader compile failed ({type}, {source.Length} chars sent): {log}");
         }
 
         return shader;

@@ -1,4 +1,5 @@
 using System.Globalization;
+using ImuGui.App.Theming;
 using ImuGui.Core.Filtering;
 
 namespace ImuGui.App.Dialogs;
@@ -7,6 +8,11 @@ namespace ImuGui.App.Dialogs;
 /// Edits the Kalman parameters (Q/R/P₀/X₀) applied to the whole filter bank. Input is
 /// validated before the dialog closes — non-numeric or out-of-range values are rejected
 /// with an inline explanation, never applied.
+/// <para>
+/// Layout note: this dialog uses a fixed client size with an explicitly-styled table
+/// (auto-size label column + percent-fill input column). Auto-sizing the form around a
+/// docked table collapsed on real DPI settings — the deterministic layout does not.
+/// </para>
 /// </summary>
 public sealed class FilterTuningDialog : Form
 {
@@ -26,20 +32,27 @@ public sealed class FilterTuningDialog : Form
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
+        ShowInTaskbar = false;
         StartPosition = FormStartPosition.CenterParent;
-        AutoSize = true;
-        AutoSizeMode = AutoSizeMode.GrowAndShrink;
-        Padding = new Padding(12);
+        AutoScaleMode = AutoScaleMode.Font;
+        ClientSize = new Size(460, 360);
 
         var grid = new TableLayoutPanel
         {
+            Dock = DockStyle.Fill,
+            Padding = new Padding(16),
             ColumnCount = 2,
             RowCount = 8,
-            AutoSize = true,
-            Dock = DockStyle.Top,
         };
         grid.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        grid.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        for (int row = 0; row < 6; row++)
+        {
+            grid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        }
+
+        grid.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); // error label absorbs slack
+        grid.RowStyles.Add(new RowStyle(SizeType.AutoSize));     // buttons
 
         _processNoiseTextBox = AddParameterRow(grid, 0, "Process noise Q:", currentConfig.ProcessNoise);
         _measurementNoiseTextBox = AddParameterRow(grid, 1, "Measurement noise R:", currentConfig.MeasurementNoise);
@@ -51,11 +64,13 @@ public sealed class FilterTuningDialog : Form
             Text = "Reset filter state (restart from X₀ / P₀)",
             Checked = true,
             AutoSize = true,
+            Margin = new Padding(3, 12, 3, 0),
         };
         _preserveStateRadioButton = new RadioButton
         {
             Text = "Keep current state (retune smoothly)",
             AutoSize = true,
+            Margin = new Padding(3, 2, 3, 0),
         };
         grid.Controls.Add(_resetStateRadioButton, 0, 4);
         grid.SetColumnSpan(_resetStateRadioButton, 2);
@@ -64,24 +79,35 @@ public sealed class FilterTuningDialog : Form
 
         _validationErrorLabel = new Label
         {
+            Dock = DockStyle.Fill,
             ForeColor = Color.Firebrick,
-            AutoSize = true,
-            MaximumSize = new Size(360, 0),
-            Padding = new Padding(0, 6, 0, 0),
+            TextAlign = ContentAlignment.TopLeft,
+            Margin = new Padding(3, 10, 3, 0),
         };
         grid.Controls.Add(_validationErrorLabel, 0, 6);
         grid.SetColumnSpan(_validationErrorLabel, 2);
 
-        var applyButton = new Button { Text = "Apply", AutoSize = true };
-        var cancelButton = new Button { Text = "Cancel", AutoSize = true, DialogResult = DialogResult.Cancel };
+        var applyButton = new Button
+        {
+            Text = "Apply",
+            AutoSize = true,
+            Padding = new Padding(12, 2, 12, 2),
+            Tag = ThemeManager.AccentButtonTag,
+        };
         applyButton.Click += (_, _) => OnApplyClicked();
+        var cancelButton = new Button
+        {
+            Text = "Cancel",
+            AutoSize = true,
+            Padding = new Padding(8, 2, 8, 2),
+            DialogResult = DialogResult.Cancel,
+        };
 
         var buttonRow = new FlowLayoutPanel
         {
+            Dock = DockStyle.Fill,
             FlowDirection = FlowDirection.RightToLeft,
             AutoSize = true,
-            Dock = DockStyle.Bottom,
-            Padding = new Padding(0, 8, 0, 0),
         };
         buttonRow.Controls.Add(applyButton);
         buttonRow.Controls.Add(cancelButton);
@@ -91,6 +117,11 @@ public sealed class FilterTuningDialog : Form
         Controls.Add(grid);
         AcceptButton = applyButton;
         CancelButton = cancelButton;
+
+        ThemeManager.ApplyToWindow(this);
+        _validationErrorLabel.ForeColor = ThemeManager.Current.IsDark
+            ? Color.FromArgb(255, 120, 120)
+            : Color.Firebrick;
     }
 
     /// <summary>The validated parameters, set only when the dialog closes with OK.</summary>
@@ -99,13 +130,21 @@ public sealed class FilterTuningDialog : Form
     /// <summary>Whether filters reset or preserve their runtime state.</summary>
     public RetuneBehavior ResultBehavior { get; private set; } = RetuneBehavior.ResetState;
 
-    private static TextBox AddParameterRow(TableLayoutPanel grid, int row, string label, double value)
+    private static TextBox AddParameterRow(TableLayoutPanel grid, int row, string labelText, double value)
     {
         grid.Controls.Add(
-            new Label { Text = label, AutoSize = true, Padding = new Padding(0, 6, 8, 0) }, 0, row);
+            new Label
+            {
+                Text = labelText,
+                AutoSize = true,
+                Anchor = AnchorStyles.Left,
+                Margin = new Padding(3, 6, 12, 6),
+            },
+            0, row);
         var textBox = new TextBox
         {
-            Width = 140,
+            Anchor = AnchorStyles.Left | AnchorStyles.Right,
+            Margin = new Padding(3, 4, 3, 4),
             Text = value.ToString("R", CultureInfo.InvariantCulture),
         };
         grid.Controls.Add(textBox, 1, row);

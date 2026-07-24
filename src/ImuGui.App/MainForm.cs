@@ -3,12 +3,12 @@ using ImuGui.App.Dialogs;
 using ImuGui.App.Models;
 using ImuGui.App.Presenters;
 using ImuGui.App.Settings;
+using ImuGui.App.Theming;
 using ImuGui.App.Views;
 using ImuGui.Core.Calibration;
 using ImuGui.Core.Fusion;
 using ImuGui.Core.Models;
 using ImuGui.Core.Pipeline;
-using Orientation = System.Windows.Forms.Orientation;
 
 namespace ImuGui.App;
 
@@ -33,9 +33,9 @@ public sealed class MainForm : Form, IMainView
     private readonly System.Windows.Forms.Timer _renderTimer;
     private readonly Stopwatch _rateStopwatch = Stopwatch.StartNew();
     private long _lastRateFrameCount;
-    private double _measuredSampleRateHz;
 
     private MainPresenter? _presenter;
+    private readonly EventHandler _themeChangedHandler;
 
     // Source controls
     private readonly RadioButton _csvModeRadioButton;
@@ -48,7 +48,7 @@ public sealed class MainForm : Form, IMainView
     private readonly Button _refreshPortsButton;
     private readonly ComboBox _baudRateComboBox;
 
-    // Connection / processing controls
+    // Action-row controls
     private readonly Button _connectButton;
     private readonly ConnectionStatusIndicator _connectionStatusIndicator;
     private readonly CheckBox _filterEnabledCheckBox;
@@ -56,6 +56,16 @@ public sealed class MainForm : Form, IMainView
     private readonly ComboBox _estimatorComboBox;
     private readonly Button _calibrateButton;
     private readonly CheckBox _calibrationEnabledCheckBox;
+    private readonly Button _settingsButton;
+    private readonly Button _themeToggleButton;
+
+    // Navigation + content sections (Settings is reached via the header gear button)
+    private const int SettingsSectionIndex = 4;
+    private readonly Button[] _navigationButtons;
+    private readonly Control[] _sections;
+    private readonly Font _navigationFont;
+    private readonly Font _navigationActiveFont;
+    private int _activeSectionIndex;
 
     // Panels
     private readonly ReadoutsPanel _readoutsPanel = new();
@@ -82,12 +92,13 @@ public sealed class MainForm : Form, IMainView
 
         Text = "ImuGui — IMU Sensor Visualization";
         StartPosition = FormStartPosition.CenterScreen;
-        MinimumSize = new Size(1150, 780);
+        MinimumSize = new Size(1024, 720);
+        Size = new Size(1280, 840);
 
-        // ── Source group ────────────────────────────────────────────────────
+        // ── Source-row controls ─────────────────────────────────────────────
         _csvModeRadioButton = new RadioButton { Text = "CSV replay", Checked = true, AutoSize = true };
         _serialModeRadioButton = new RadioButton { Text = "Serial (COM)", AutoSize = true };
-        _csvPathTextBox = new TextBox { Width = 240 };
+        _csvPathTextBox = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right };
         _browseCsvButton = new Button { Text = "Browse…", AutoSize = true };
         _replayRateUpDown = new NumericUpDown
         {
@@ -107,11 +118,18 @@ public sealed class MainForm : Form, IMainView
 
         _baudRateComboBox.SelectedItem = 115200;
 
-        // ── Connection group ────────────────────────────────────────────────
-        _connectButton = new Button { Text = "Connect", AutoSize = true, Padding = new Padding(8, 2, 8, 2) };
-        _connectionStatusIndicator = new ConnectionStatusIndicator();
-
-        // ── Filtering / fusion group ────────────────────────────────────────
+        // ── Action-row controls ─────────────────────────────────────────────
+        _connectButton = new Button
+        {
+            Text = "Connect",
+            AutoSize = true,
+            Padding = new Padding(18, 3, 18, 3),
+            Tag = ThemeManager.AccentButtonTag,
+        };
+        _connectionStatusIndicator = new ConnectionStatusIndicator
+        {
+            Anchor = AnchorStyles.Left | AnchorStyles.Right,
+        };
         _filterEnabledCheckBox = new CheckBox { Text = "Use filtered data", Checked = true, AutoSize = true };
         _tuneFiltersButton = new Button { Text = "Tune filters…", AutoSize = true };
         _estimatorComboBox = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 170 };
@@ -120,13 +138,47 @@ public sealed class MainForm : Form, IMainView
         _estimatorComboBox.Items.Add(new EstimatorChoice(
             OrientationEstimatorKind.EulerComplementary, "Complementary (Euler)"));
         _estimatorComboBox.SelectedIndex = 0;
-
-        // ── Calibration group ───────────────────────────────────────────────
         _calibrateButton = new Button { Text = "Calibrate…", AutoSize = true };
         _calibrationEnabledCheckBox = new CheckBox { Text = "Apply calibration", Checked = true, AutoSize = true };
+        _settingsButton = new Button { Text = "⚙  Settings", AutoSize = true, Padding = new Padding(8, 2, 8, 2) };
+        _themeToggleButton = new Button { AutoSize = true, Padding = new Padding(8, 2, 8, 2) };
+
+        // ── Navigation + sections ───────────────────────────────────────────
+        _navigationFont = new Font(Font.FontFamily, 9.75f, FontStyle.Regular);
+        _navigationActiveFont = new Font(Font.FontFamily, 9.75f, FontStyle.Bold);
+        string[] sectionTitles = ["Dashboard", "Charts", "3D Views", "Environment"];
+        _sections =
+        [
+            BuildDashboardSection(),
+            _chartsPanel,
+            _cubeViewsPanel,
+            _environmentPanel,
+            BuildSettingsSection(), // index 4 — opened via the header gear button
+        ];
+        _navigationButtons = new Button[sectionTitles.Length];
+        for (int i = 0; i < sectionTitles.Length; i++)
+        {
+            int sectionIndex = i;
+            _navigationButtons[i] = new Button
+            {
+                Text = sectionTitles[i],
+                AutoSize = true,
+                FlatStyle = FlatStyle.Flat,
+                Padding = new Padding(12, 5, 12, 5),
+                Margin = new Padding(0, 0, 6, 0),
+                Font = _navigationFont,
+            };
+            _navigationButtons[i].Click += (_, _) => SelectSection(sectionIndex);
+        }
 
         BuildLayout();
         WireLocalEvents();
+        SelectSection(0);
+
+        _themeChangedHandler = (_, _) => ApplyThemeToEverything();
+        ThemeManager.ThemeChanged += _themeChangedHandler;
+        ThemeManager.SetTheme(_settingsService.Current.UseDarkTheme ? AppTheme.Dark : AppTheme.Light);
+        ApplyThemeToEverything();
 
         _renderTimer = new System.Windows.Forms.Timer { Interval = 33 }; // Render cadence only — never the data clock.
         _renderTimer.Tick += (_, _) => OnRenderTick();
@@ -263,6 +315,7 @@ public sealed class MainForm : Form, IMainView
 
         UserSettings settings = presenter.Settings;
         _chartsPanel.Attach(_pipeline, settings);
+        _chartsPanel.ApplyChartTheme(ThemeManager.Current);
         _cubeViewsPanel.Initialize(settings);
         _environmentPanel.ShowGrid = settings.ShowEnvironmentGrid;
 
@@ -273,6 +326,7 @@ public sealed class MainForm : Form, IMainView
     protected override void OnFormClosing(FormClosingEventArgs e)
     {
         _renderTimer.Stop();
+        ThemeManager.ThemeChanged -= _themeChangedHandler;
 
         if (_presenter is { } presenter)
         {
@@ -284,82 +338,257 @@ public sealed class MainForm : Form, IMainView
         base.OnFormClosing(e);
     }
 
-    // ───────────────────────────── Internals ─────────────────────────────────
+    // ───────────────────────────── Layout ─────────────────────────────────────
 
     private void BuildLayout()
     {
-        var sourceGroup = new GroupBox { Text = "Source", AutoSize = true, Padding = new Padding(8) };
-        var sourceFlow = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, WrapContents = true, MaximumSize = new Size(520, 0) };
-        sourceFlow.Controls.Add(_csvModeRadioButton);
-        sourceFlow.Controls.Add(_csvPathTextBox);
-        sourceFlow.Controls.Add(_browseCsvButton);
-        sourceFlow.Controls.Add(new Label { Text = "Rate (Hz):", AutoSize = true, Padding = new Padding(4, 6, 0, 0) });
-        sourceFlow.Controls.Add(_replayRateUpDown);
-        sourceFlow.Controls.Add(_loopReplayCheckBox);
-        sourceFlow.Controls.Add(_serialModeRadioButton);
-        sourceFlow.Controls.Add(_serialPortComboBox);
-        sourceFlow.Controls.Add(_refreshPortsButton);
-        sourceFlow.Controls.Add(new Label { Text = "Baud:", AutoSize = true, Padding = new Padding(4, 6, 0, 0) });
-        sourceFlow.Controls.Add(_baudRateComboBox);
-        sourceGroup.Controls.Add(sourceFlow);
-
-        var connectionGroup = new GroupBox { Text = "Connection", AutoSize = true, Padding = new Padding(8) };
-        var connectionFlow = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill };
-        connectionFlow.Controls.Add(_connectButton);
-        connectionFlow.Controls.Add(_connectionStatusIndicator);
-        connectionGroup.Controls.Add(connectionFlow);
-
-        var processingGroup = new GroupBox { Text = "Processing", AutoSize = true, Padding = new Padding(8) };
-        var processingFlow = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, WrapContents = true, MaximumSize = new Size(420, 0) };
-        processingFlow.Controls.Add(_filterEnabledCheckBox);
-        processingFlow.Controls.Add(_tuneFiltersButton);
-        processingFlow.Controls.Add(new Label { Text = "Fusion:", AutoSize = true, Padding = new Padding(4, 6, 0, 0) });
-        processingFlow.Controls.Add(_estimatorComboBox);
-        processingFlow.Controls.Add(_calibrateButton);
-        processingFlow.Controls.Add(_calibrationEnabledCheckBox);
-        processingGroup.Controls.Add(processingFlow);
-
-        var controlBar = new FlowLayoutPanel
+        // Minimal header that fits at any window width/DPI: connect + real status +
+        // the everyday raw/filtered toggle + theme. Everything else lives in Settings.
+        var header = new TableLayoutPanel
         {
             Dock = DockStyle.Top,
             AutoSize = true,
-            Padding = new Padding(6),
+            ColumnCount = 7,
+            Padding = new Padding(10, 8, 10, 6),
         };
-        controlBar.Controls.Add(sourceGroup);
-        controlBar.Controls.Add(connectionGroup);
-        controlBar.Controls.Add(processingGroup);
+        AddAutoRow(header);
+        AddCell(header, _connectButton, 0, autoSize: true);
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        header.Controls.Add(_connectionStatusIndicator, 1, 0);
+        AddCell(header, CreateSeparator(), 2, autoSize: true);
+        AddCell(header, _filterEnabledCheckBox, 3, autoSize: true);
+        AddCell(header, CreateSeparator(), 4, autoSize: true);
+        AddCell(header, _settingsButton, 5, autoSize: true);
+        AddCell(header, _themeToggleButton, 6, autoSize: true);
 
-        var dashboardSplit = new SplitContainer
+        // Flat navigation bar (replaces the system tab strip, which cannot be themed).
+        var navigationBar = new FlowLayoutPanel
         {
-            Dock = DockStyle.Fill,
-            Orientation = Orientation.Vertical,
-            SplitterDistance = 55,
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            Padding = new Padding(10, 2, 10, 0),
         };
-        dashboardSplit.Panel1.Controls.Add(_instrumentsPanel);
-        dashboardSplit.Panel2.Controls.Add(_readoutsPanel);
+        foreach (Button navigationButton in _navigationButtons)
+        {
+            navigationBar.Controls.Add(navigationButton);
+        }
 
-        var tabs = new TabControl { Dock = DockStyle.Fill };
-        tabs.TabPages.Add(CreateTab("Dashboard", dashboardSplit));
-        tabs.TabPages.Add(CreateTab("Charts", _chartsPanel));
-        tabs.TabPages.Add(CreateTab("3D Views", _cubeViewsPanel));
-        tabs.TabPages.Add(CreateTab("Environment", _environmentPanel));
+        var navigationHairline = new Panel
+        {
+            Dock = DockStyle.Top,
+            Height = 1,
+            Tag = ThemeManager.SeparatorTag,
+        };
 
-        var statusStrip = new StatusStrip();
+        var contentHost = new Panel { Dock = DockStyle.Fill, Padding = new Padding(6) };
+        foreach (Control section in _sections)
+        {
+            section.Dock = DockStyle.Fill;
+            section.Visible = false;
+            contentHost.Controls.Add(section);
+        }
+
+        var statusStrip = new StatusStrip { SizingGrip = false };
         statusStrip.Items.Add(_messageStatusLabel);
         statusStrip.Items.Add(_sampleRateStatusLabel);
         statusStrip.Items.Add(_frameCountStatusLabel);
 
-        Controls.Add(tabs);
-        Controls.Add(controlBar);
+        Controls.Add(contentHost);
+        Controls.Add(navigationHairline);
+        Controls.Add(navigationBar);
+        Controls.Add(header);
         Controls.Add(statusStrip);
     }
 
-    private static TabPage CreateTab(string title, Control content)
+    private Control BuildDashboardSection()
     {
-        var page = new TabPage(title);
-        content.Dock = DockStyle.Fill;
-        page.Controls.Add(content);
-        return page;
+        var dashboard = new TableLayoutPanel { ColumnCount = 2, RowCount = 1 };
+        dashboard.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45));
+        dashboard.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
+        dashboard.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        _instrumentsPanel.Dock = DockStyle.Fill;
+        _readoutsPanel.Dock = DockStyle.Fill;
+        dashboard.Controls.Add(_instrumentsPanel, 0, 0);
+        dashboard.Controls.Add(_readoutsPanel, 1, 0);
+        return dashboard;
+    }
+
+    private Control BuildSettingsSection()
+    {
+        // Auto-size all the way down (no dock/auto-size circularity): fixed-width
+        // inputs inside auto-size tables inside auto-size group boxes.
+        _csvPathTextBox.Anchor = AnchorStyles.Left;
+        _csvPathTextBox.Width = 340;
+
+        var sourceTable = CreateSettingsTable();
+        AddSettingsHeaderRow(sourceTable, 0, _csvModeRadioButton);
+        AddSettingsRow(sourceTable, 1, "File", InlineFlow(_csvPathTextBox, _browseCsvButton));
+        AddSettingsRow(sourceTable, 2, "Rate (Hz)", InlineFlow(_replayRateUpDown, _loopReplayCheckBox));
+        AddSettingsHeaderRow(sourceTable, 3, _serialModeRadioButton);
+        AddSettingsRow(sourceTable, 4, "Port", InlineFlow(_serialPortComboBox, _refreshPortsButton));
+        AddSettingsRow(sourceTable, 5, "Baud", InlineFlow(_baudRateComboBox));
+
+        var processingTable = CreateSettingsTable();
+        AddSettingsRow(processingTable, 0, "Kalman filter", InlineFlow(
+            _tuneFiltersButton,
+            CreateInlineLabel("Raw/filtered display toggle is in the header.")));
+        AddSettingsRow(processingTable, 1, "Fusion", InlineFlow(_estimatorComboBox));
+        AddSettingsRow(processingTable, 2, "Calibration", InlineFlow(
+            _calibrateButton, _calibrationEnabledCheckBox));
+
+        var settingsColumn = new FlowLayoutPanel
+        {
+            FlowDirection = FlowDirection.TopDown,
+            WrapContents = false,
+            AutoScroll = true,
+            Padding = new Padding(10),
+        };
+        settingsColumn.Controls.Add(WrapInGroup("Data source", sourceTable));
+        settingsColumn.Controls.Add(WrapInGroup("Processing", processingTable));
+        return settingsColumn;
+    }
+
+    private static TableLayoutPanel CreateSettingsTable() => new()
+    {
+        AutoSize = true,
+        AutoSizeMode = AutoSizeMode.GrowAndShrink,
+        ColumnCount = 2,
+        ColumnStyles = { new ColumnStyle(SizeType.Absolute, 110), new ColumnStyle(SizeType.AutoSize) },
+    };
+
+    private static void AddSettingsHeaderRow(TableLayoutPanel table, int row, Control header)
+    {
+        table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        header.Margin = new Padding(3, row == 0 ? 4 : 14, 3, 4);
+        table.Controls.Add(header, 0, row);
+        table.SetColumnSpan(header, 2);
+    }
+
+    private void AddSettingsRow(TableLayoutPanel table, int row, string labelText, Control content)
+    {
+        table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        Label label = CreateInlineLabel(labelText);
+        label.Anchor = AnchorStyles.Left;
+        label.Margin = new Padding(26, 8, 8, 4);
+        table.Controls.Add(label, 0, row);
+        content.Anchor = AnchorStyles.Left;
+        table.Controls.Add(content, 1, row);
+    }
+
+    private static FlowLayoutPanel InlineFlow(params Control[] controls)
+    {
+        var flow = new FlowLayoutPanel
+        {
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            WrapContents = false,
+            Margin = new Padding(0),
+        };
+        foreach (Control control in controls)
+        {
+            control.Anchor = AnchorStyles.Left;
+            control.Margin = new Padding(3, 4, 8, 4);
+            flow.Controls.Add(control);
+        }
+
+        return flow;
+    }
+
+    private static GroupBox WrapInGroup(string title, Control content)
+    {
+        var group = new GroupBox
+        {
+            Text = title,
+            // Dock=Top auto-size child + a minimum width sizes deterministically;
+            // Dock=Fill inside an auto-size container collapses (the tuning-dialog bug).
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowOnly,
+            MinimumSize = new Size(640, 0),
+            Padding = new Padding(14, 6, 14, 12),
+            Margin = new Padding(0, 0, 0, 14),
+        };
+        content.Dock = DockStyle.Top;
+        group.Controls.Add(content);
+        return group;
+    }
+
+    private static void AddAutoRow(TableLayoutPanel table) =>
+        table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+    private static void AddCell(TableLayoutPanel table, Control control, int column, bool autoSize)
+    {
+        if (autoSize)
+        {
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        }
+
+        control.Anchor = control.Anchor == (AnchorStyles.Left | AnchorStyles.Right)
+            ? control.Anchor
+            : AnchorStyles.Left;
+        control.Margin = new Padding(4, 4, 4, 4);
+        table.Controls.Add(control, column, 0);
+    }
+
+    private static Label CreateInlineLabel(string text) => new()
+    {
+        Text = text,
+        AutoSize = true,
+        Tag = ThemeManager.SecondaryTextTag,
+    };
+
+    private static Panel CreateSeparator() => new()
+    {
+        Width = 1,
+        Height = 26,
+        Tag = ThemeManager.SeparatorTag,
+        Margin = new Padding(10, 4, 10, 4),
+        Anchor = AnchorStyles.None,
+    };
+
+    // ───────────────────────────── Theming ────────────────────────────────────
+
+    private void ApplyThemeToEverything()
+    {
+        AppTheme theme = ThemeManager.Current;
+        ThemeManager.ApplyToWindow(this);
+        _chartsPanel.ApplyChartTheme(theme);
+        StyleNavigationButtons();
+        _themeToggleButton.Text = theme.IsDark ? "☀  Light" : "🌙  Dark";
+        Invalidate(true);
+    }
+
+    private void StyleNavigationButtons()
+    {
+        AppTheme theme = ThemeManager.Current;
+        for (int i = 0; i < _navigationButtons.Length; i++)
+        {
+            Button button = _navigationButtons[i];
+            bool active = i == _activeSectionIndex;
+            button.FlatStyle = FlatStyle.Flat;
+            button.FlatAppearance.BorderSize = 0;
+            button.Font = active ? _navigationActiveFont : _navigationFont;
+            button.BackColor = active ? theme.SurfaceBackground : theme.WindowBackground;
+            button.ForeColor = active ? theme.Accent : theme.SecondaryText;
+            button.FlatAppearance.MouseOverBackColor = theme.SurfaceBackground;
+        }
+
+        // The header gear button doubles as the Settings "tab": accent while open.
+        bool settingsActive = _activeSectionIndex == SettingsSectionIndex;
+        _settingsButton.ForeColor = settingsActive ? theme.Accent : theme.PrimaryText;
+        _settingsButton.FlatAppearance.BorderColor = settingsActive ? theme.Accent : theme.Border;
+    }
+
+    // ───────────────────────────── Behavior ───────────────────────────────────
+
+    private void SelectSection(int index)
+    {
+        _activeSectionIndex = index;
+        for (int i = 0; i < _sections.Length; i++)
+        {
+            _sections[i].Visible = i == index;
+        }
+
+        StyleNavigationButtons();
     }
 
     private void WireLocalEvents()
@@ -377,8 +606,17 @@ public sealed class MainForm : Form, IMainView
             _presenter?.SetEstimatorKind(SelectedEstimatorKind);
         _tuneFiltersButton.Click += (_, _) => OnTuneFiltersClicked();
         _calibrateButton.Click += (_, _) => OnCalibrateClicked();
+        _settingsButton.Click += (_, _) => SelectSection(SettingsSectionIndex);
+        _themeToggleButton.Click += (_, _) => OnThemeToggleClicked();
         _environmentPanel.GridVisibilityChanged += (_, _) =>
             _settingsService.Update(s => s with { ShowEnvironmentGrid = _environmentPanel.ShowGrid });
+    }
+
+    private void OnThemeToggleClicked()
+    {
+        AppTheme next = ThemeManager.Current.IsDark ? AppTheme.Light : AppTheme.Dark;
+        ThemeManager.SetTheme(next);
+        _settingsService.Update(s => s with { UseDarkTheme = next.IsDark });
     }
 
     private async Task OnConnectButtonClickedAsync()
@@ -479,10 +717,10 @@ public sealed class MainForm : Form, IMainView
         }
 
         long frameCount = _pipeline.FrameCount;
-        _measuredSampleRateHz = (frameCount - _lastRateFrameCount) / _rateStopwatch.Elapsed.TotalSeconds;
+        double measuredHz = (frameCount - _lastRateFrameCount) / _rateStopwatch.Elapsed.TotalSeconds;
         _lastRateFrameCount = frameCount;
         _rateStopwatch.Restart();
-        _sampleRateStatusLabel.Text = $"{_measuredSampleRateHz:F1} Hz";
+        _sampleRateStatusLabel.Text = $"{measuredHz:F1} Hz";
     }
 
     private void UpdateSourceModeEnablement()
