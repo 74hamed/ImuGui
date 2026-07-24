@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <!-- UI-facing project; XML docs are not mandated outside ImuGui.Core. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <!-- The ONLY project in the solution allowed to reference OpenGL libraries. -->
+  <ItemGroup>
+    <PackageReference Include="OpenTK" />
+    <PackageReference Include="OpenTK.GLControl" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ImuGui.Core\ImuGui.Core.csproj" />
+  </ItemGroup>
+
+</Project>

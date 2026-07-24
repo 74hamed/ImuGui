@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <!-- UI-facing project; XML docs are not mandated outside ImuGui.Core. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <!-- Self-contained owner-drawn instrument controls (GDI+). No external
+       dependencies by design: the legacy app shipped two unlicensed opaque
+       DLLs for these gauges; this project replaces them with owned code. -->
+
+</Project>

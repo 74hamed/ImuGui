@@ -1,0 +1,30 @@
+<Project>
+
+  <!-- Central package version management: every PackageReference in the
+       solution resolves its version from this single file. -->
+  <ItemGroup>
+    <!-- Core -->
+    <PackageVersion Include="CsvHelper" Version="33.1.0" />
+    <PackageVersion Include="System.IO.Ports" Version="9.0.18" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.3" />
+
+    <!-- App composition -->
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+    <PackageVersion Include="Serilog.Extensions.Hosting" Version="8.0.0" />
+    <PackageVersion Include="Serilog.Sinks.Console" Version="6.1.1" />
+    <PackageVersion Include="Serilog.Sinks.File" Version="6.0.0" />
+
+    <!-- UI: charts & 3D -->
+    <PackageVersion Include="ScottPlot.WinForms" Version="5.0.56" />
+    <PackageVersion Include="OpenTK" Version="4.9.4" />
+    <PackageVersion Include="OpenTK.GLControl" Version="4.0.2" />
+
+    <!-- Tests. FluentAssertions is pinned below 8.x on purpose: v8 moved to a
+         commercial license; 7.x is the last Apache-2.0 line. -->
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageVersion Include="FluentAssertions" Version="7.2.2" />
+  </ItemGroup>
+
+</Project>

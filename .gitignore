@@ -1,0 +1,31 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+publish/
+artifacts/
+TestResults/
+*.binlog
+
+# User-specific / IDE
+*.user
+*.suo
+.vs/
+.idea/
+*.swp
+.DS_Store
+
+# Secrets & signing material — never committed
+*.pfx
+*.snk
+*.p12
+*.key
+secrets.json
+
+# Logs & local data
+logs/
+*.log
+
+# NuGet
+*.nupkg
+packages/

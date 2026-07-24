@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    name: Build & test (Windows)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      # TreatWarningsAsErrors is set solution-wide in Directory.Build.props,
+      # so any warning fails this step.
+      - name: Build (Release)
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Test (Release)
+        run: dotnet test --configuration Release --no-build --verbosity normal

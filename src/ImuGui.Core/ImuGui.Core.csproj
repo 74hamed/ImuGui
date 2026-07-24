@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- GenerateDocumentationFile is inherited from Directory.Build.props and
+       CS1591 is NOT suppressed here: every public Core API must carry XML docs. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CsvHelper" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="System.IO.Ports" />
+  </ItemGroup>
+
+</Project>

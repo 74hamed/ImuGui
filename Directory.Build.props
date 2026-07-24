@@ -1,0 +1,23 @@
+<Project>
+
+  <!-- Shared build settings for every project in the solution. -->
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <!-- Required in every project for IDE0005 (unused usings) to run at build
+         time. CS1591 (missing XML doc) stays enforced only in ImuGui.Core,
+         whose public surface is the documented API; UI and test projects
+         opt out of CS1591 locally. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <Deterministic>true</Deterministic>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!-- Allows building the net8.0-windows heads on non-Windows CI/dev machines.
+         Running the WinForms app still requires Windows. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+  </PropertyGroup>
+
+</Project>
