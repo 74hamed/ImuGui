@@ -3,16 +3,26 @@
 [![CI](https://github.com/74hamed/ImuGui/actions/workflows/ci.yml/badge.svg)](https://github.com/74hamed/ImuGui/actions/workflows/ci.yml)
 ![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white)
 ![Platform](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-150%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-158%20passing-brightgreen)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 
 A comprehensive Windows desktop application for real-time visualization, analysis, and processing of IMU (Inertial Measurement Unit) sensor data with modern 3D graphics, quaternion sensor fusion, and per-channel Kalman filtering.
+
+![ImuGui dashboard — artificial horizon, heading indicator, and live readouts](docs/screenshots/dashboard.jpg)
+
+## 📸 Screenshots
+
+| Live charts | Dual 3D cube views |
+|:---:|:---:|
+| ![Three scrolling sensor charts with per-axis toggles](docs/screenshots/charts.jpg) | ![Two independent cube views with selectable quantities](docs/screenshots/3d-views.jpg) |
+| **Interactive 3D environment** | **Dashboard** |
+| ![Environment view with grid, oriented cube, and Blender-style camera](docs/screenshots/environment.jpg) | ![Aircraft instruments and numeric readouts](docs/screenshots/dashboard.jpg) |
 
 ## 📋 Overview
 
 ImuGui is a professional-grade C# WinForms application designed for engineers, researchers, and developers working with 9-axis IMU sensors. It provides an intuitive interface for monitoring multi-axis accelerometer, gyroscope, and magnetometer data in real time — replayed from a CSV recording or streamed live from a serial (COM) device — with Kalman filtering for noise reduction, interactive OpenGL 3D visualization, aircraft instruments, and orientation tracking.
 
-The application is a ground-up rebuild with a layered, fully-tested architecture: a UI-independent core (sources, filtering, fusion, calibration), an isolated OpenGL rendering layer, owner-drawn instruments, and a dependency-injected WinForms shell. The solution builds with **zero warnings** (warnings are errors) and ships with **150 unit tests** and CI.
+The application is a ground-up rebuild with a layered, fully-tested architecture: a UI-independent core (sources, filtering, fusion, calibration), an isolated OpenGL rendering layer, owner-drawn instruments, and a dependency-injected WinForms shell. The solution builds with **zero warnings** (warnings are errors) and ships with **158 unit tests** and CI.
 
 ## 🎯 Key Features
 
@@ -114,7 +124,7 @@ ImuGui/
 │   ├── ImuGui.Instruments/       # Owner-drawn artificial horizon & heading indicator
 │   └── ImuGui.App/               # WinForms shell: DI bootstrap, MVP presenters, views, dialogs
 ├── tests/
-│   └── ImuGui.Core.Tests/        # 150 xUnit tests over all core logic
+│   └── ImuGui.Core.Tests/        # 158 xUnit tests over all core logic
 ├── samples/
 │   └── imu-sample.csv            # Bundled 40 s / 50 Hz recording — works out of the box
 ├── docs/                         # Architecture, data formats, controls reference
@@ -202,7 +212,7 @@ CSV Recording          Serial IMU Device
 2. **Build & Test** (CLI)
    ```bash
    dotnet build     # zero warnings, or the build fails
-   dotnet test      # 150 tests
+   dotnet test      # 158 tests
    ```
 
 3. **Run the Application**
@@ -346,12 +356,12 @@ Both are unit-tested against known orientations, including integration with deli
 
 **Status**: ✅ **Stable rebuild — feature-complete**
 
-This codebase is a from-scratch rebuild of the original prototype, with the full feature set reimplemented on a tested, layered architecture. Verified so far:
+This codebase is a from-scratch rebuild of the original prototype, with the full feature set reimplemented on a tested, layered architecture. Verified:
 
-- ✅ 150 unit tests over all core logic (parsing, filtering, fusion, calibration, serial reconnect, pipeline)
+- ✅ 158 unit tests over all core logic (parsing, filtering, fusion, calibration, serial reconnect, pipeline)
 - ✅ Zero-warning build enforced solution-wide; CI on `windows-latest` for every push/PR
 - ✅ Clean-clone → `dotnet build` → `dotnet test` → run, with no manual steps
-- 🔜 Screenshots/GIF pending the first interactive smoke test on physical hardware
+- ✅ Smoke-tested on physical Windows hardware — including replay of real phone IMU recordings validated against the phone's own fusion
 
 ### Future Enhancements
 - [ ] Data recording/export (log live streams back to CSV)
@@ -453,8 +463,6 @@ Contributions are welcome! To contribute:
 
 ## 🔗 Related Projects
 
-- [SharpGL Learning Projects](https://github.com/74hamed/SharpGL-Learning-Projects) - OpenGL fundamentals
-- [Sensor3DViewer](https://github.com/74hamed/Sensor3DViewer) - Basic sensor visualization
 - [Arduino IMU Projects](https://create.arduino.cc/projecthub/projects?t=IMU)
 
 ## 📄 License
