@@ -26,11 +26,12 @@ The application is a ground-up rebuild with a layered, fully-tested architecture
 ### 🎮 3D Graphics Rendering
 - **Two Independent Cube Views** - Each driven by a user-selectable quantity (Accelerometer, Magnetometer, Gyroscope, or Orientation — mutually exclusive between the views) with per-view raw/filtered toggles
 - **Interactive 3D Environment** - Ground reference grid (toggleable), colored XYZ axes, and the oriented sensor cube
-- **Advanced Camera Control** - Mouse-driven orbit camera with a documented, tested mapping:
-  - **Left Drag**: Orbit / rotate view
-  - **Ctrl + Drag**: Pan camera
+- **Blender-style Camera Control** - Mouse-driven orbit camera with Blender's viewport bindings:
+  - **Middle Drag**: Orbit / rotate view
+  - **Shift + Middle Drag**: Pan camera
+  - **Ctrl + Middle Drag**: Zoom (drag up = closer)
   - **Mouse Wheel**: Zoom in/out
-  - **R**: Reset view to default
+  - **Home**: Reset view to default
 - **Artificial Horizon Display** - Owner-drawn attitude indicator driven by roll + pitch
 - **Heading Indicator** - Aviation-style rotating compass card driven by yaw
 - **Orientation Tracking** - Real-time Roll, Pitch, Yaw (RPY) from quaternion sensor fusion
@@ -44,7 +45,7 @@ The application is a ground-up rebuild with a layered, fully-tested architecture
   - **X₀** - Initial state estimate
 - **Explicit Retune Semantics** - Choose to reset filter state or retune smoothly while running
 - **Global Raw ⇄ Filtered Toggle** - Switches every readout, chart, gauge, and 3D view consistently
-- **Sensor Fusion** - Quaternion **Mahony MARG** filter by default (no gimbal lock), with a selectable Euler **complementary** filter; correct tilt-compensated magnetometer heading
+- **Sensor Fusion** - Quaternion **Mahony MARG** filter by default (no gimbal lock), with selectable Euler **complementary** and **Kalman** (two-state, online gyro-bias estimation) filters; correct tilt-compensated magnetometer heading
 - **Measured dt** - Fusion integrates the *measured* time between samples — never a hardcoded interval
 
 ### 📁 Data Management
@@ -253,12 +254,16 @@ GyroX,GyroY,GyroZ,AccelX,AccelY,AccelZ,MagX,MagY,MagZ,Temperature
 
 ### Main Window
 
-**Control Bar**
-- **Source**: CSV replay (file picker, rate, loop) or Serial (COM port + Refresh, baud rate)
-- **Connection**: Connect/Disconnect button + real-state status lamp
-- **Processing**: global filtered-data toggle, **Tune filters…** dialog, fusion strategy picker (Mahony / complementary), **Calibrate…** and apply-calibration toggle
+**Header** (always visible)
+- **Connect/Disconnect** button + real-state status lamp
+- **Use filtered data** — the global raw/filtered toggle
+- **Theme toggle** (☀/🌙, dark by default) and the **⚙ Settings** button
 
-**Tabs**
+**Settings page** (header gear button)
+- **Data source**: CSV replay (file picker, rate, loop) or Serial (COM port + Refresh, baud rate)
+- **Processing**: **Tune filters…** dialog, fusion strategy picker (Mahony / complementary / Kalman), **Calibrate…** and apply-calibration toggle
+
+**Navigation**
 - **Dashboard**: artificial horizon + heading indicator alongside all numeric readouts
 - **Charts**: the three scrolling sensor charts with axis toggles and raw overlay
 - **3D Views**: the two selectable cube views
@@ -268,14 +273,17 @@ GyroX,GyroY,GyroZ,AccelX,AccelY,AccelZ,MagX,MagY,MagZ,Temperature
 
 ### 3D View Controls
 
+The bindings follow **Blender's viewport navigation**:
+
 | Input | Action |
 |-------|--------|
-| **Left Mouse Drag** | Orbit / rotate view |
-| **Ctrl + Left Drag** | Pan camera (moves the rotation center) |
+| **Middle Mouse Drag** | Orbit / rotate view |
+| **Shift + Middle Drag** | Pan camera (moves the rotation center) |
+| **Ctrl + Middle Drag** | Zoom (drag up = closer) |
 | **Mouse Wheel Up** | Zoom in |
 | **Mouse Wheel Down** | Zoom out |
-| **R** | Reset view to default |
-| **Reset camera button** | Same as **R** |
+| **Home** (or **R**) | Reset view to default |
+| **Reset camera button** | Same as **Home** |
 
 These bindings are documented in [docs/controls.md](docs/controls.md) and backed by the tested `OrbitCamera` — the on-screen hint bar shows the same mapping the code implements.
 
@@ -330,6 +338,7 @@ Accurate Orientation (Roll, Pitch, Yaw) — raw AND filtered variants side by si
 Implemented strategies:
 - **Mahony MARG filter** (default) — quaternion-based, gimbal-lock free, PI error correction with anti-windup
 - **Complementary filter** — Euler-based, dt-aware blend coefficient α = τ/(τ+dt), wrap-aware yaw
+- **Kalman filter** — per-axis two-state [angle, gyro-bias] formulation; learns and removes constant gyro drift online
 
 Both are unit-tested against known orientations, including integration with deliberately irregular sample intervals.
 

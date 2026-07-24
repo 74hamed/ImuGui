@@ -137,6 +137,8 @@ public sealed class MainForm : Form, IMainView
             OrientationEstimatorKind.MahonyQuaternion, "Mahony (quaternion)"));
         _estimatorComboBox.Items.Add(new EstimatorChoice(
             OrientationEstimatorKind.EulerComplementary, "Complementary (Euler)"));
+        _estimatorComboBox.Items.Add(new EstimatorChoice(
+            OrientationEstimatorKind.KalmanEuler, "Kalman (Euler)"));
         _estimatorComboBox.SelectedIndex = 0;
         _calibrateButton = new Button { Text = "Calibrate…", AutoSize = true };
         _calibrationEnabledCheckBox = new CheckBox { Text = "Apply calibration", Checked = true, AutoSize = true };
@@ -358,8 +360,8 @@ public sealed class MainForm : Form, IMainView
         AddCell(header, CreateSeparator(), 2, autoSize: true);
         AddCell(header, _filterEnabledCheckBox, 3, autoSize: true);
         AddCell(header, CreateSeparator(), 4, autoSize: true);
-        AddCell(header, _settingsButton, 5, autoSize: true);
-        AddCell(header, _themeToggleButton, 6, autoSize: true);
+        AddCell(header, _themeToggleButton, 5, autoSize: true);
+        AddCell(header, _settingsButton, 6, autoSize: true);
 
         // Flat navigation bar (replaces the system tab strip, which cannot be themed).
         var navigationBar = new FlowLayoutPanel

@@ -8,4 +8,10 @@ public enum OrientationEstimatorKind
 
     /// <summary>Euler-angle complementary filter (simpler; gimbal ambiguity near ±90° pitch).</summary>
     EulerComplementary,
+
+    /// <summary>
+    /// Per-axis two-state Kalman filter (angle + gyro-bias state; learns rate bias online;
+    /// gimbal ambiguity near ±90° pitch).
+    /// </summary>
+    KalmanEuler,
 }

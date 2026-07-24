@@ -10,12 +10,14 @@ namespace ImuGui.Rendering;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Mouse controls (exactly as documented):
+/// Mouse controls follow Blender's viewport navigation (exactly as documented; the
+/// modifier held when the middle button goes down selects the drag mode, as in Blender):
 /// <list type="bullet">
-///   <item>Left-drag: orbit (0.01 rad/px; horizontal → yaw, vertical → pitch).</item>
-///   <item>Ctrl + left-drag: pan (target moves in camera plane; scale = Distance × 0.002 world-units/px).</item>
+///   <item>Middle-drag: orbit (0.01 rad/px; horizontal → yaw, vertical → pitch).</item>
+///   <item>Shift + middle-drag: pan (target moves in camera plane; scale = Distance × 0.002 world-units/px).</item>
+///   <item>Ctrl + middle-drag: zoom (drag up = closer, 1% per pixel).</item>
 ///   <item>Mouse wheel: zoom, factor 0.9 per 120 wheel-delta notches (wheel up = closer).</item>
-///   <item>R key: reset camera.</item>
+///   <item>Home (or R): reset camera.</item>
 /// </list>
 /// </para>
 /// <para>Thread safety: all public methods must be called on the UI thread.</para>
@@ -45,6 +47,8 @@ public sealed class EnvironmentGlView : GlSceneControl
     // Zoom factor per 120 wheel-delta notch (positive delta = wheel up = zoom in)
     private const float ZoomFactor = 0.9f;
     private const int WheelNotch = 120;
+    // Ctrl+middle-drag zoom: 1% distance change per vertical pixel (drag up = closer)
+    private const double ZoomDragFactorPerPixel = 1.01;
 
     private readonly OrbitCamera _camera = new();
 
@@ -52,8 +56,16 @@ public sealed class EnvironmentGlView : GlSceneControl
     private CoreQuaternion _attitude = CoreQuaternion.Identity;
     private bool _showGrid = true;
 
-    // Mouse drag state
-    private bool _dragging;
+    // Mouse drag state (mode is chosen when the middle button goes down, as in Blender)
+    private enum DragMode
+    {
+        None,
+        Orbit,
+        Pan,
+        ZoomDrag,
+    }
+
+    private DragMode _dragMode = DragMode.None;
     private int _lastMouseX;
     private int _lastMouseY;
 
@@ -152,9 +164,12 @@ public sealed class EnvironmentGlView : GlSceneControl
         }
 
         FocusGlSurface();  // ensure keyboard events reach our OnKeyDown
-        if (e.Button == MouseButtons.Left)
+        if (e.Button == MouseButtons.Middle)
         {
-            _dragging = true;
+            // Blender picks the navigation mode from the modifiers held at press time.
+            _dragMode = (ModifierKeys & Keys.Shift) != 0 ? DragMode.Pan
+                : (ModifierKeys & Keys.Control) != 0 ? DragMode.ZoomDrag
+                : DragMode.Orbit;
             _lastMouseX = e.X;
             _lastMouseY = e.Y;
         }
@@ -164,9 +179,9 @@ public sealed class EnvironmentGlView : GlSceneControl
     protected override void OnMouseUp(MouseEventArgs e)
     {
         base.OnMouseUp(e);
-        if (e.Button == MouseButtons.Left)
+        if (e.Button == MouseButtons.Middle)
         {
-            _dragging = false;
+            _dragMode = DragMode.None;
         }
     }
 
@@ -174,7 +189,7 @@ public sealed class EnvironmentGlView : GlSceneControl
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
-        if (!_dragging || IsInDesignMode())
+        if (_dragMode == DragMode.None || IsInDesignMode())
         {
             return;
         }
@@ -184,21 +199,35 @@ public sealed class EnvironmentGlView : GlSceneControl
         _lastMouseX = e.X;
         _lastMouseY = e.Y;
 
-        bool ctrl = (ModifierKeys & Keys.Control) != 0;
-        if (ctrl)
+        switch (_dragMode)
         {
-            // Pan: drag direction moves the scene with the mouse.
-            // WinForms Y increases downward; a pixel drag of (dx, dy) means:
-            //   dx > 0  → mouse right → scene right → target moves +right  → deltaRight = -dx (camera moves right, target follows)
-            //   dy < 0  → mouse up    → scene up    → target moves +up     → deltaUp = -dy (positive when mouse up)
-            double panScale = _camera.Distance * PanScale;
-            _camera.Pan(-dx * panScale, -dy * panScale);
-        }
-        else
-        {
-            // Orbit: dragging right increases yaw clockwise from above (positive delta),
-            //        dragging up increases pitch (look from higher = positive pitch).
-            _camera.Orbit(dx * OrbitSensitivity, -dy * OrbitSensitivity);
+            case DragMode.Pan:
+                // Pan: the scene follows the mouse.
+                // WinForms Y increases downward; a pixel drag of (dx, dy) means:
+                //   dx > 0 → mouse right → scene right → deltaRight = -dx (camera slides left)
+                //   dy < 0 → mouse up    → scene up    → deltaUp    = -dy (positive when mouse up)
+                double panScale = _camera.Distance * PanScale;
+                _camera.Pan(-dx * panScale, -dy * panScale);
+                break;
+
+            case DragMode.ZoomDrag:
+                // Ctrl+middle vertical drag, as in Blender: up = closer, down = farther.
+                if (dy != 0)
+                {
+                    _camera.Zoom(Math.Pow(ZoomDragFactorPerPixel, dy));
+                }
+
+                break;
+
+            case DragMode.Orbit:
+                // Orbit: dragging right increases yaw clockwise from above (positive delta),
+                //        dragging up increases pitch (look from higher = positive pitch).
+                _camera.Orbit(dx * OrbitSensitivity, -dy * OrbitSensitivity);
+                break;
+
+            case DragMode.None:
+            default:
+                break;
         }
 
         RequestRedraw();
@@ -238,8 +267,9 @@ public sealed class EnvironmentGlView : GlSceneControl
             return;
         }
 
-        if (e.KeyCode == Keys.R)
+        if (e.KeyCode is Keys.Home or Keys.R)
         {
+            // Home matches Blender's "frame view"; R is kept as a familiar alias.
             ResetCamera();
         }
     }

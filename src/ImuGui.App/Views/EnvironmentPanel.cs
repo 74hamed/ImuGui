@@ -38,7 +38,7 @@ public sealed class EnvironmentPanel : UserControl
 
         var controlHintsLabel = new Label
         {
-            Text = "Left-drag: orbit    Ctrl+drag: pan    Wheel: zoom    R: reset",
+            Text = "Middle-drag: orbit    Shift+Middle: pan    Ctrl+Middle: zoom    Wheel: zoom    Home: reset",
             AutoSize = true,
             Tag = Theming.ThemeManager.SecondaryTextTag,
             Anchor = AnchorStyles.Left,

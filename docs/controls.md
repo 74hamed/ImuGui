@@ -6,13 +6,17 @@ The mapping below is implemented in `EnvironmentGlView` and verified against
 `ImuGui.Core.Cameras.OrbitCamera`'s unit tests — the on-screen hint bar shows the same
 bindings.
 
+The bindings follow **Blender's viewport navigation**; the modifier held when the middle
+button goes down selects the drag mode, exactly as Blender does.
+
 | Input | Action |
 |---|---|
-| **Left-drag** | Orbit around the rotation center (horizontal = yaw, vertical = pitch, 0.01 rad/px; pitch clamped to ±89°) |
-| **Ctrl + left-drag** | Pan — moves the rotation center in the view plane (scaled by distance) |
+| **Middle-drag** | Orbit around the rotation center (horizontal = yaw, vertical = pitch, 0.01 rad/px; pitch clamped to ±89°) |
+| **Shift + middle-drag** | Pan — moves the rotation center in the view plane (scaled by distance) |
+| **Ctrl + middle-drag** | Zoom — drag up = closer (1% per pixel) |
 | **Mouse wheel** | Zoom (wheel up = closer; distance clamped to [1, 60]) |
-| **R** | Reset camera to the default pose (45° azimuth, 30° elevation, distance 8, center at origin) |
-| **Reset camera button** | Same as **R** |
+| **Home** (or **R**) | Reset camera to the default pose (45° azimuth, 30° elevation, distance 8, center at origin) |
+| **Reset camera button** | Same as **Home** |
 
 The **Show grid** checkbox toggles the ground reference grid.
 
@@ -39,8 +43,8 @@ global one.
   **overlay the raw signal** for comparison.
 - **Tune filters…** edits the Kalman parameters (Q/R/P₀/X₀) for all channels, with a
   choice of resetting or preserving the filters' runtime state.
-- **Fusion** selects the estimator: Mahony (quaternion, default, no gimbal lock) or
-  complementary (Euler).
+- **Fusion** selects the estimator: Mahony (quaternion, default, no gimbal lock),
+  complementary (Euler), or Kalman (Euler, with an online gyro-bias state).
 - **Calibrate…** opens the calibration workflow (gyro bias → six-position accelerometer
   → magnetometer figure-eight); **Apply calibration** toggles the active profile on the
   live stream.

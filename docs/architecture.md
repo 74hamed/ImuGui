@@ -45,7 +45,9 @@ rates on a quaternion with PI correction from the accelerometer's gravity direct
 the magnetometer's field direction (with anti-windup on the integral term); the first
 sample initializes attitude directly from accel + tilt-compensated heading. The
 complementary estimator propagates Euler angles through proper Euler-rate kinematics and
-blends with a dt-aware coefficient α = τ/(τ+dt), wrap-aware for yaw.
+blends with a dt-aware coefficient α = τ/(τ+dt), wrap-aware for yaw. The Kalman estimator
+runs the classic two-state [angle, gyro-bias] filter per axis over the same kinematics —
+its bias state learns and removes constant gyro drift online.
 
 ## Testing strategy
 

@@ -10,6 +10,7 @@ public static class OrientationEstimatorFactory
     {
         OrientationEstimatorKind.MahonyQuaternion => new MahonyOrientationEstimator(),
         OrientationEstimatorKind.EulerComplementary => new ComplementaryOrientationEstimator(),
+        OrientationEstimatorKind.KalmanEuler => new KalmanOrientationEstimator(),
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown estimator kind."),
     };
 }
