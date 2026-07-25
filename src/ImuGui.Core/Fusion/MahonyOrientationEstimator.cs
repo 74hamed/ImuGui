@@ -105,9 +105,13 @@ public sealed class MahonyOrientationEstimator : IOrientationEstimator
             correctedRate += _options.ProportionalGain * error;
         }
 
-        double angle = correctedRate.Magnitude * dt;
-        if (angle > 0)
+        // Guard on the axis magnitude, not the angle: FromAxisAngle must normalize the
+        // rotation axis, which is undefined for (near-)zero vectors. A corrected rate
+        // below 1e-6 rad/s (~2e-4 °/h) is physically a no-op; skipping it is exact enough
+        // and keeps the integration robust to denormal floating-point residues.
+        if (correctedRate.MagnitudeSquared > VectorEpsilonSquared)
         {
+            double angle = correctedRate.Magnitude * dt;
             _attitude = (_attitude * Quaternion.FromAxisAngle(correctedRate, angle)).Normalized();
         }
     }

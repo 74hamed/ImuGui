@@ -131,6 +131,22 @@ public class MahonyOrientationEstimatorTests
     }
 
     [Fact]
+    public void Vanishingly_small_rates_do_not_crash_the_integration()
+    {
+        // Regression (caught by CI on a different CPU): a corrected rate that is nonzero
+        // but below the vector-normalization epsilon must be skipped, not integrated —
+        // FromAxisAngle cannot normalize a (near-)zero axis. 1e-10 deg/s ≈ 1.7e-12 rad/s
+        // lands deterministically inside that gap.
+        var estimator = new MahonyOrientationEstimator(new MahonyOptions { IntegralGain = 0 });
+        estimator.Update(TestSamples.Level(), TimeSpan.Zero);
+        Quaternion before = estimator.CurrentAttitude;
+
+        estimator.Update(TestSamples.GyroOnly(1e-10, 0, 0), Dt20Ms);
+
+        estimator.CurrentAttitude.Should().Be(before, "a sub-epsilon rotation is a no-op");
+    }
+
+    [Fact]
     public void Zero_and_negative_dt_do_not_advance_the_attitude()
     {
         var estimator = new MahonyOrientationEstimator();
